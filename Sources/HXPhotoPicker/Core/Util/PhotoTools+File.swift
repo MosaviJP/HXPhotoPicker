@@ -183,7 +183,9 @@ public extension PhotoTools {
     @discardableResult
     static func getTmpURL(for suffix: String) -> URL {
         var tmpPath = FileManager.tempPath
-        tmpPath.append(contentsOf: String.fileName(suffix: suffix))
+        tmpPath.append(contentsOf: "HXPhotoPicker")
+        folderExists(atPath: tmpPath)
+        tmpPath.append(contentsOf: "/" + String.fileName(suffix: suffix))
         let tmpURL = URL.init(fileURLWithPath: tmpPath)
         return tmpURL
     }
