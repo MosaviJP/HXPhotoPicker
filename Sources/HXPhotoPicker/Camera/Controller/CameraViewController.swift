@@ -102,6 +102,8 @@ open class CameraViewController: HXBaseViewController {
                     viewController: self
                 ) { [weak self] in
                     self?.backClick(true)
+                } rightHandler: { [weak self] in
+                    self?.backClick(true)
                 }
             }
         }

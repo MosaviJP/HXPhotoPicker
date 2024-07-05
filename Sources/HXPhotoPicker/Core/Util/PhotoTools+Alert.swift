@@ -127,7 +127,8 @@ extension PhotoTools {
     #if HXPICKER_ENABLE_PICKER || HXPICKER_ENABLE_CAMERA
     static func showNotCameraAuthorizedAlert(
         viewController: UIViewController?,
-        cancelHandler: (() -> Void)? = nil
+        cancelHandler: (() -> Void)? = nil,
+        rightHandler:(() -> Void)? = nil
     ) {
         guard let vc = viewController else { return }
         showAlert(
@@ -139,6 +140,7 @@ extension PhotoTools {
         ) { _ in
             cancelHandler?()
         } rightHandler: { _ in
+            rightHandler?()
             openSettingsURL()
         }
     }
