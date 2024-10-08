@@ -52,7 +52,7 @@ public final class PhotoManager: NSObject {
     var indicatorType: IndicatorType = .system
     
     #if HXPICKER_ENABLE_PICKER
-    
+    public var pickerResultCompression: PhotoAsset.Compression? = nil
     #if canImport(Kingfisher)
     public var imageDownloader: Kingfisher.ImageDownloader?
     #endif
@@ -94,10 +94,6 @@ public final class PhotoManager: NSObject {
             }
         }
     }
-    #endif
-    
-    #if HXPICKER_ENABLE_CAMERA && !targetEnvironment(macCatalyst)
-    var cameraType: CameraController.CameraType = .normal
     #endif
     
     let uuid: String = UUID().uuidString

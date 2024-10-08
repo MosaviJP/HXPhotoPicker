@@ -1,4 +1,32 @@
-# 更新日志 
+# 更新日志
+
+## 4.2.3.1
+
+### 修复
+
+- picker
+  - 权限受限时系统相册更新后未同步
+
+## 4.2.3
+
+### 新增
+
+- Camera
+  - 相机界面支持自定义`CameraViewControllerProtocol`
+
+### 修复
+
+- picker
+  - 系统相册删除照片后可能未同步
+
+- Editor
+  - 旋转、镜像时可能无效
+
+## 4.2.2
+
+### 修复
+
+- [[705]](https://github.com/SilenceLove/HXPhotoPicker/issues/705)
 
 ## 4.2.1
 

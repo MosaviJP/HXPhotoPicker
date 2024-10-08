@@ -12,7 +12,7 @@ import Photos
 extension PhotoPickerController: PHPhotoLibraryChangeObserver {
     
     public func photoLibraryDidChange(_ changeInstance: PHChange) {
-        if !AssetPermissionsUtil.isLimitedAuthorizationStatus || !config.allowLoadPhotoLibrary {
+        if !config.allowLoadPhotoLibrary {
             return
         }
         var needReload = false
@@ -39,7 +39,7 @@ extension PhotoPickerController: PHPhotoLibraryChangeObserver {
         }
         if needReload {
             DispatchQueue.main.async {
-                if self.fetchData.cameraAssetCollection?.result == nil {
+                if self.fetchData.cameraAssetCollection?.collection == nil {
                     self.fetchData.fetchCameraAssetCollection()
                 }else {
                     self.reloadData(assetCollection: nil)
@@ -48,26 +48,26 @@ extension PhotoPickerController: PHPhotoLibraryChangeObserver {
             }
         }
     }
+    
     private func resultHasChanges(
         for changeInstance: PHChange,
         assetCollection: PhotoAssetCollection
     ) -> Bool {
-        if assetCollection.result == nil {
+        guard let resultCollection = assetCollection.collection else {
             if assetCollection == self.fetchData.cameraAssetCollection {
                 return true
             }
             return false
         }
-        let changeResult: PHFetchResultChangeDetails? = changeInstance.changeDetails(
-            for: assetCollection.result!
-        )
-        if let changeResult = changeResult, !changeResult.hasIncrementalChanges {
-            let result = changeResult.fetchResultAfterChanges
-            assetCollection.updateResult(for: result)
-            if assetCollection == self.fetchData.cameraAssetCollection && result.count == 0 {
+        
+        if let changeResult: PHObjectChangeDetails = changeInstance.changeDetails(for: resultCollection),
+           let collection = changeResult.objectAfterChanges {
+            assetCollection.collection = collection
+            assetCollection.fetchResult()
+            if assetCollection.count == 0 {
                 assetCollection.update(
                     albumName: .textManager.picker.albumList.emptyAlbumName.text,
-                    coverImage: self.config.emptyCoverImageName.image
+                    coverImage: config.emptyCoverImageName.image
                 )
             }
             return true
