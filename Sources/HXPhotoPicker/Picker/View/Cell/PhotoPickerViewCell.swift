@@ -323,9 +323,11 @@ extension PhotoPickerViewCell {
 //                assetTypeIcon.image = .imageResource.picker.photoList.cell.videoEdited.image
 //            }
 //            #endif
-        }else if photoAsset.mediaSubType == .livePhoto ||
-                    photoAsset.mediaSubType == .localLivePhoto {
+        }else if photoAsset.mediaSubType.isLivePhoto {
             assetTypeLb.text = .textPhotoList.cell.LivePhotoTitle.text
+            assetTypeMaskView.isHidden = false
+        }else if photoAsset.mediaSubType.isHDRPhoto {
+            assetTypeLb.text = .textPhotoList.cell.HDRPhotoTitle.text
             assetTypeMaskView.isHidden = false
         }else {
             assetTypeLb.text = nil

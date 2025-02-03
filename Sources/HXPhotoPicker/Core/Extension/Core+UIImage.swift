@@ -49,7 +49,7 @@ extension UIImage {
     }
     
     func scaleToFillSize(size: CGSize, mode: HX.ImageTargetMode = .fill, scale: CGFloat = 0) -> UIImage? {
-        if __CGSizeEqualToSize(self.size, size) {
+        if self.size == size {
             return self
         }
         let rect: CGRect
@@ -366,4 +366,32 @@ extension UIImage {
         }
         return image
     }
+    
+    static func HDRDecoded(_ data: Data) -> UIImage? {
+        guard let sourceRef = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+        let properties = CGImageSourceCopyPropertiesAtIndex(sourceRef, 0, nil) as? [AnyHashable: Any]
+        let exifOrientation = {
+            guard let orientation = properties?[kCGImagePropertyOrientation] as? UInt32 else {
+                return CGImagePropertyOrientation.up
+            }
+            return CGImagePropertyOrientation(rawValue: orientation) ?? .up
+        }()
+        
+        var decodingOptions: [AnyHashable: Any] = [
+            kCGImageSourceShouldCacheImmediately: false
+        ]
+        if #available(macOS 14, iOS 17, tvOS 17, watchOS 10, *) {
+            decodingOptions[kCGImageSourceDecodeRequest] = kCGImageSourceDecodeToHDR
+        }
+        guard let imageRef = CGImageSourceCreateImageAtIndex(sourceRef, 0, decodingOptions as CFDictionary) else {
+            return nil
+        }
+        
+        let imageOrientation = AssetManager.transformImageOrientation(orientation: exifOrientation)
+        let image = UIImage(cgImage: imageRef, scale: 1.0, orientation: imageOrientation)
+        return image
+    }
+    
 }

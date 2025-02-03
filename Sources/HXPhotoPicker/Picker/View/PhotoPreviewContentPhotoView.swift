@@ -47,6 +47,9 @@ class PhotoPreviewContentPhotoView: UIView, PhotoPreviewContentViewProtocol {
     func initViews() {
         imageView = ImageView()
         imageView.size = size
+        if #available(iOS 17, *) {
+            imageView.preferredImageDynamicRange = .high
+        }
         addSubview(imageView)
     }
     
@@ -253,11 +256,11 @@ extension PhotoPreviewContentPhotoView {
         if photoAsset.mediaSubType != .networkVideo {
             var key: String = ""
             if let networkImage = photoAsset.networkImageAsset {
-                if let cacheKey = networkImage.thumbnailURL?.cacheKey,
+                if let cacheKey = networkImage.thumbailCacheKey,
                    networkImage.originalLoadMode == .alwaysThumbnail,
                    !loadOriginal {
                     key = cacheKey
-                }else if let cacheKey = networkImage.originalURL?.cacheKey {
+                }else if let cacheKey = networkImage.originalCacheKey {
                     key = cacheKey
                 }
             }else if let livePhoto = photoAsset.localLivePhoto,
@@ -371,7 +374,7 @@ extension PhotoPreviewContentPhotoView {
                 guard let self = self, self.photoAsset == asset else {
                     return
                 }
-                if inICloud {
+                if inICloud || asset.mediaSubType.isHDRPhoto {
                     self.requestPreviewImageData()
                 }else {
                     self.requestPreviewImage()
@@ -479,22 +482,26 @@ extension PhotoPreviewContentPhotoView {
                             }
                         }
                     }
-                    let dataCount = CGFloat(dataResult.imageData.count)
-                    if dataCount > 3000000 {
-                        PhotoTools.compressImageData(
-                            dataResult.imageData,
-                            compressionQuality: dataCount.compressionQuality,
-                            queueLabel: "com.hxphotopicker.previewrequest"
-                        ) {
-                            guard let imageData = $0 else {
-                                handler()
-                                return
+                    if asset.mediaSubType.isHDRPhoto {
+                        handler(UIImage.HDRDecoded(dataResult.imageData))
+                    } else {
+                        let dataCount = CGFloat(dataResult.imageData.count)
+                        if dataCount > 3000000 {
+                            PhotoTools.compressImageData(
+                                dataResult.imageData,
+                                compressionQuality: dataCount.compressionQuality,
+                                queueLabel: "com.hxphotopicker.previewrequest"
+                            ) {
+                                guard let imageData = $0 else {
+                                    handler()
+                                    return
+                                }
+                                handler(.init(data: imageData))
                             }
-                            handler(.init(data: imageData))
+                            return
                         }
-                        return
+                        handler()
                     }
-                    handler()
                 }
             }
         case .failure(let error):
