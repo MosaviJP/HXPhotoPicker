@@ -6,8 +6,6 @@
 //
 
 import UIKit
-#if canImport(Kingfisher)
-import Kingfisher
 
 public struct NetworkImageAsset: Codable {
     
@@ -35,9 +33,9 @@ public struct NetworkImageAsset: Codable {
     public let thumbnailURL: URL?
     public let thumbailCacheKey: String?
     
-    /// Size set by DownsamplingImageProcessor when Kingfisher downloads thumbnails
+    /// Size set by when  downloads thumbnails
     /// .zero defaults to imageView.size
-    /// Kingfisher 下载缩略图时 DownsamplingImageProcessor 设置的大小
+    /// 下载缩略图时 设置的大小
     /// .zero 默认为 imageView.size
     public let thumbnailSize: CGSize
     
@@ -64,6 +62,7 @@ public struct NetworkImageAsset: Codable {
     /// size of the picture
     /// 图片尺寸
     public var imageSize: CGSize
+    public var originalImageSize: CGSize
     
     /// Image file size
     /// 图片文件大小
@@ -81,22 +80,35 @@ public struct NetworkImageAsset: Codable {
         thumbnailSize: CGSize = .zero,
         placeholder: String? = nil,
         imageSize: CGSize = .zero,
+        originalImageSize: CGSize = .zero,
         fileSize: Int = 0
     ) {
         self.thumbnailURL = thumbnailURL
         self.originalURL = originalURL
-        self.thumbailCacheKey = thumbailCacheKey ?? thumbnailURL?.cacheKey
-        self.originalCacheKey = originalCacheKey ?? originalURL?.cacheKey
+        if let thumbailCacheKey {
+            self.thumbailCacheKey = thumbailCacheKey
+        }else if let thumbnailURL {
+            self.thumbailCacheKey = PhotoManager.ImageView.getCacheKey(forURL: thumbnailURL)
+        }else {
+            self.thumbailCacheKey = nil
+        }
+        if let originalCacheKey {
+            self.originalCacheKey = originalCacheKey
+        }else if let originalURL {
+            self.originalCacheKey = PhotoManager.ImageView.getCacheKey(forURL: originalURL)
+        }else {
+            self.originalCacheKey = nil
+        }
         self.thumbnailLoadMode = thumbnailLoadMode
         self.originalLoadMode = originalLoadMode
         self.isFade = isFade
         self.thumbnailSize = thumbnailSize
         self.placeholder = placeholder
         self.imageSize = imageSize
+        self.originalImageSize = originalImageSize
         self.fileSize = fileSize
     }
 }
-#endif
 
 public struct NetworkVideoAsset {
     
@@ -121,7 +133,6 @@ public struct NetworkVideoAsset {
     /// 封面的占位图
     public var coverPlaceholder: String?
     
-    #if canImport(Kingfisher)
     /// 视频封面网络地址
     public var coverImageURL: URL?
     
@@ -168,42 +179,6 @@ public struct NetworkVideoAsset {
         self.coverImageURL = coverImageURL
         self.coverPlaceholder = coverPlaceholder
     }
-    #else
-    /// 初始化网络视频
-    public init(
-        networkVideo url: URL,
-        options: [String: Any]? = nil,
-        duration: TimeInterval = 0,
-        fileSize: Int = 0,
-        coverImage: UIImage? = nil,
-        videoSize: CGSize = .zero
-    ) {
-        self.init(
-            videoURL: url,
-            options: options,
-            duration: duration,
-            fileSize: fileSize,
-            coverImage: coverImage,
-            videoSize: videoSize
-        )
-    }
-    /// 初始化网络视频
-    public init(
-        videoURL: URL,
-        options: [String: Any]? = nil,
-        duration: TimeInterval = 0,
-        fileSize: Int = 0,
-        coverImage: UIImage? = nil,
-        videoSize: CGSize = .zero
-    ) {
-        self.videoURL = videoURL
-        self.options = options
-        self.duration = duration
-        self.fileSize = fileSize
-        self.coverImage = coverImage
-        self.videoSize = videoSize
-    }
-    #endif
 }
 
 extension NetworkVideoAsset: Codable {
@@ -213,9 +188,7 @@ extension NetworkVideoAsset: Codable {
         case coverImage
         case fileSize
         case videoSize
-        #if canImport(Kingfisher)
         case coverImageURL
-        #endif
     }
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -232,9 +205,7 @@ extension NetworkVideoAsset: Codable {
         }
         fileSize = try container.decode(Int.self, forKey: .fileSize)
         videoSize = try container.decode(CGSize.self, forKey: .videoSize)
-        #if canImport(Kingfisher)
         coverImageURL = try container.decodeIfPresent(URL.self, forKey: .coverImageURL)
-        #endif
     }
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -251,8 +222,6 @@ extension NetworkVideoAsset: Codable {
         }
         try container.encode(fileSize, forKey: .fileSize)
         try container.encode(videoSize, forKey: .videoSize)
-        #if canImport(Kingfisher)
         try container.encode(coverImageURL, forKey: .coverImageURL)
-        #endif
     }
 }

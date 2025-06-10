@@ -18,6 +18,10 @@ public struct EditorAsset {
     /// 编辑结果
     public var result: EditedResult?
     
+    public var url: URL? { result?.url }
+    
+    public var image: UIImage? { result?.image }
+    
     public init(type: AssetType, result: EditedResult? = nil) {
         self.type = type
         self.result = result
@@ -31,9 +35,7 @@ extension EditorAsset {
         case video(URL)
         case videoAsset(AVAsset)
         case networkVideo(URL)
-        #if canImport(Kingfisher)
         case networkImage(URL)
-        #endif
         #if HXPICKER_ENABLE_PICKER
         case photoAsset(PhotoAsset)
         
@@ -74,7 +76,6 @@ extension EditorAsset {
             }
         }
         
-        #if canImport(Kingfisher)
         public var networkImageURL: URL? {
             switch self {
             case .networkImage(let url):
@@ -83,16 +84,13 @@ extension EditorAsset {
                 return nil
             }
         }
-        #endif
         
         public var contentType: EditorContentViewType {
             switch self {
             case .image, .imageData:
                 return .image
-            #if canImport(Kingfisher)
             case .networkImage:
                 return .image
-            #endif
             case .video, .networkVideo, .videoAsset:
                 return .video
             #if HXPICKER_ENABLE_PICKER

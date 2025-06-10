@@ -1,4 +1,34 @@
 # Release Notes
+    
+## 5.0.2
+
+### Resolved
+
+- [[797]](https://github.com/SilenceLove/HXPhotoPicker/issues/797)
+- [[792]](https://github.com/SilenceLove/HXPhotoPicker/issues/792)
+
+## 5.0.1
+
+### Add
+
+- Spanish, Portuguese languages
+
+### Resolved
+
+- [[787]](https://github.com/SilenceLove/HXPhotoPicker/issues/787) 
+- [[784]](https://github.com/SilenceLove/HXPhotoPicker/issues/784) 
+- [[782]](https://github.com/SilenceLove/HXPhotoPicker/issues/782) 
+- [[777]](https://github.com/SilenceLove/HXPhotoPicker/issues/777)
+- [[776]](https://github.com/SilenceLove/HXPhotoPicker/issues/776)
+- [[775]](https://github.com/SilenceLove/HXPhotoPicker/issues/775)
+
+## 5.0.0
+
+- Minimum system version upgraded to `iOS 10`
+- Network image loading supports customization[HXImageViewProtocol](https://github.com/SilenceLove/HXPhotoPicker/blob/master/Sources/HXPhotoPicker/Core/Config/HXImageViewProtocol.swift)
+  - [Kingfisher](https://github.com/SilenceLove/HXPhotoPicker/tree/master/Sources/ImageView/KFImageView.swift)
+  - [SDWebImage](https://github.com/SilenceLove/HXPhotoPicker/tree/master/Sources/ImageView/SDImageView.swift)
+  
 
 ## 4.2.5
 

@@ -9,9 +9,6 @@
 import UIKit
 import Photos
 import PhotosUI
-#if canImport(Kingfisher)
-import Kingfisher
-#endif
 
 public final class PhotoManager: NSObject {
     
@@ -37,7 +34,33 @@ public final class PhotoManager: NSObject {
     }
     public static var HUDView: PhotoHUDProtocol.Type = ProgressHUD.self
     
+    #if canImport(Kingfisher) && HXPICKER_ENABLE_CORE_IMAGEVIEW_KF
+    public static var ImageView: HXImageViewProtocol.Type = KFImageView.self
+    #elseif canImport(SDWebImage) && HXPICKER_ENABLE_CORE_IMAGEVIEW_SD
+    public static var ImageView: HXImageViewProtocol.Type = SDImageView.self
+    #elseif canImport(SwiftyGif) && HXPICKER_ENABLE_CORE_IMAGEVIEW_GIF
+    public static var ImageView: HXImageViewProtocol.Type = GIFImageView.self
+    #else
+    public static var ImageView: HXImageViewProtocol.Type = HXImageView.self
+    #endif
+    
+    #if DEBUG
+    public var isDebugLogsEnabled: Bool = true
+    #else
     public var isDebugLogsEnabled: Bool = false
+    #endif
+    
+    /// 是否阿语RTL布局
+    public static var isRTL: Bool {
+        guard let languageType = PhotoManager.shared.languageType else {
+            return false
+        }
+        if languageType == .system {
+            return PhotoManager.shared.languageStr == "ar"
+        } else {
+            return languageType == .arabic
+        }
+    }
     
     /// 当前语言文件，每次创建PhotoPickerController判断是否需要重新创建
     var languageBundle: Bundle?
@@ -53,9 +76,6 @@ public final class PhotoManager: NSObject {
     
     #if HXPICKER_ENABLE_PICKER
     public var pickerResultCompression: PhotoAsset.Compression? = nil
-    #if canImport(Kingfisher)
-    public var imageDownloader: Kingfisher.ImageDownloader?
-    #endif
     
     /// 加载网络视频方式
     public var loadNetworkVideoMode: PhotoAsset.LoadNetworkVideoMode = .download
@@ -73,6 +93,7 @@ public final class PhotoManager: NSObject {
     var cameraAlbumResult: PHFetchResult<PHAsset>?
     var cameraAlbumResultOptions: PickerAssetOptions?
     var thumbnailLoadMode: ThumbnailLoadMode = .complete
+    var pickerCaptureTime: TimeInterval = 0
     #endif
     
     #if HXPICKER_ENABLE_PICKER || HXPICKER_ENABLE_EDITOR

@@ -148,21 +148,7 @@ public class PhotoPreviewViewController: PhotoBaseViewController {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         viewDidAppear = true
-        DispatchQueue.main.async {
-            if let cell = self.getCell(for: self.currentPreviewIndex) {
-                cell.requestPreviewAsset()
-            }else {
-                self.requestPreviewTimer = Timer.scheduledTimer(
-                    withTimeInterval: 0.2,
-                    repeats: false
-                ) { [weak self] _ in
-                    guard let self = self else { return }
-                    let cell = self.getCell(for: self.currentPreviewIndex)
-                    cell?.requestPreviewAsset()
-                }
-            }
-        }
-        
+        requestPreviewAsset()
         let isFullscreen = pickerController.modalPresentationStyle == .fullScreen || (splitViewController?.modalPresentationStyle == .fullScreen)
         let isMacApp: Bool
         if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
@@ -179,6 +165,23 @@ public class PhotoPreviewViewController: PhotoBaseViewController {
         }
         if isShowToolbar {
             photoToolbar.viewDidAppear(self)
+        }
+    }
+    
+    func requestPreviewAsset() {
+        DispatchQueue.main.async {
+            if let cell = self.getCell(for: self.currentPreviewIndex) {
+                cell.requestPreviewAsset()
+            }else {
+                self.requestPreviewTimer = Timer.scheduledTimer(
+                    withTimeInterval: 0.2,
+                    repeats: false
+                ) { [weak self] _ in
+                    guard let self = self else { return }
+                    let cell = self.getCell(for: self.currentPreviewIndex)
+                    cell?.requestPreviewAsset()
+                }
+            }
         }
     }
     
@@ -379,6 +382,10 @@ extension PhotoPreviewViewController {
             view.addSubview(navBgView)
             self.navBgView = navBgView
         }
+        
+        //强制LTR，避免阿语下预览图片内容被镜像
+        view.semanticContentAttribute = .forceLeftToRight
+        collectionView.semanticContentAttribute = .forceLeftToRight
     }
     func configBottomViewFrame() {
         if !config.isShowBottomView {
@@ -608,7 +615,6 @@ extension PhotoPreviewViewController {
     
     @objc func didCancelItemClick() {
         pickerController.cancelCallback()
-        dismiss(animated: true, completion: nil)
     }
     
     func removeSelectedAssetWhenRemovingAssets(_ assets: [PhotoAsset]) {

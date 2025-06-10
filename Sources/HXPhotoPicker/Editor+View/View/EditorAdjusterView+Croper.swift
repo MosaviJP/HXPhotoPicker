@@ -78,6 +78,7 @@ extension EditorAdjusterView {
         }
         deselectedSticker()
         let image = self.image
+        let imageData = self.imageData
         let cropRect = getCropRect()
         let cropRatio = getCropOption()
         var canvasImage: UIImage?
@@ -107,6 +108,7 @@ extension EditorAdjusterView {
             if self.contentType == .image {
                 self.cropImage(
                     image,
+                    imageData: imageData,
                     rect: cropRect,
                     cropFactor: cropFactor,
                     completion: completion
@@ -150,12 +152,14 @@ extension EditorAdjusterView {
             height: rect.height * scrollView.zoomScale
         )
         
-        let centerRatio = CGPoint(x: rect.midX / viewSize.width, y: rect.midY / viewSize.height)
+        let centerRatio = CGPoint(
+            x: CGFloat(floor(rect.midX / viewSize.width * 10000) / 10000),
+            y: CGFloat(floor(rect.midY / viewSize.height * 10000) / 10000))
         
         let cropRect = getCropRect()
         let sizeRatio = CGPoint(
-            x: cropRect.width / viewSize.width,
-            y: cropRect.height / viewSize.height
+            x: CGFloat(floor(cropRect.width / viewSize.width * 10000) / 10000),
+            y: CGFloat(floor(cropRect.height / viewSize.height * 10000) / 10000)
         )
         
         return (centerRatio: centerRatio, sizeRatio: sizeRatio)
@@ -163,6 +167,7 @@ extension EditorAdjusterView {
     
     func cropImage(
         _ image: UIImage?,
+        imageData: Data?,
         rect: CGRect,
         cropFactor: CropFactor,
         completion: @escaping (Result<ImageEditedResult, EditorError>) -> Void
@@ -185,8 +190,15 @@ extension EditorAdjusterView {
         }
         let overlayImage = getOverlayImage(overlayImageSize, cropFactor: cropFactor)
         var exportScale = exportScale
-        if imageMaxSize > exportMaxSize {
-            exportScale = exportMaxSize / imageMaxSize
+        if !isJPEGImage, !isHEICImage {
+            let exportMaxSize = exportMaxSize * 0.7
+            if imageMaxSize > exportMaxSize {
+                exportScale = exportMaxSize / imageMaxSize
+            }
+        }else {
+            if imageMaxSize > exportMaxSize {
+                exportScale = exportMaxSize / imageMaxSize
+            }
         }
         if exportScale != inputImage.scale && overlayImage != nil {
             let scale = exportScale / inputImage.scale
@@ -195,7 +207,7 @@ extension EditorAdjusterView {
             cropRect.size.width *= scale
             cropRect.size.height *= scale
         }
-        if let animateOption = inputImage.animateImageFrame() {
+        if let animateOption = imageData?.animateImageFrame() {
             cropAnimateImage(
                 animateOption,
                 overlayImage: overlayImage,
