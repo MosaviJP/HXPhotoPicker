@@ -19,8 +19,8 @@ class PhotoPreviewContentLivePhotoView: PhotoPreviewContentPhotoView {
         addSubview(livePhotoView)
     }
     
-    override func updateContent() {
-        if photoAsset.mediaSubType.isLivePhoto {
+    override func updateContent(_ oldAsset: PhotoAsset?) {
+        if photoAsset.mediaSubType.isLivePhoto && self.photoAsset != oldAsset {
             livePhotoView.livePhoto = nil
             if let localLivePhoto = photoAsset.localLivePhoto,
                !localLivePhoto.imageURL.isFileURL {
@@ -28,7 +28,9 @@ class PhotoPreviewContentLivePhotoView: PhotoPreviewContentPhotoView {
                 requestNetworkImage()
             }
         }
-        super.updateContent()
+        configLivePhotoView()
+        
+        super.updateContent(oldAsset)
     }
     
     override func requestPreviewContent(_ canRequest: Bool) {
@@ -47,11 +49,11 @@ class PhotoPreviewContentLivePhotoView: PhotoPreviewContentPhotoView {
     
     override func showOtherSubview() {
         super.showOtherSubview()
-        delegate?.contentView(livePhotoDidEndPlayback: self)
+        delegate?.contentView(showLivePhotoMark: self)
     }
     override func hiddenOtherSubview() {
         super.hiddenOtherSubview()
-        delegate?.contentView(livePhotoWillBeginPlayback: self)
+        delegate?.contentView(hideLivePhotoMark: self)
     }
     
     override func cancelRequest() {
@@ -105,8 +107,8 @@ extension PhotoPreviewContentLivePhotoView {
                 UIView.animate(withDuration: 0.25) {
                     self.livePhotoView.alpha = 1
                 }
-                if self.livePhotoPlayType == .auto ||
-                    self.livePhotoPlayType == .once {
+                if (self.livePhotoPlayType == .auto ||
+                    self.livePhotoPlayType == .once) && !asset.isDisableLivePhoto {
                     self.livePhotoView.startPlayback(with: .full)
                 }
                 self.requestID = nil
@@ -146,8 +148,8 @@ extension PhotoPreviewContentLivePhotoView {
                 UIView.animate(withDuration: 0.25) {
                     self.livePhotoView.alpha = 1
                 }
-                if self.livePhotoPlayType == .auto ||
-                    self.livePhotoPlayType == .once {
+                if (self.livePhotoPlayType == .auto ||
+                    self.livePhotoPlayType == .once) && !photoAsset.isDisableLivePhoto {
                     self.livePhotoView.startPlayback(with: .full)
                 }
                 self.localLivePhotoRequest = nil
@@ -171,6 +173,11 @@ extension PhotoPreviewContentLivePhotoView {
             }
         })
     }
+    
+    private func configLivePhotoView() {
+        livePhotoView.playbackGestureRecognizer.isEnabled = !photoAsset.isDisableLivePhoto
+        livePhotoView.isMuted = photoAsset.isLivePhotoMuted
+    }
 }
 
 extension PhotoPreviewContentLivePhotoView: PHLivePhotoViewDelegate {
@@ -179,15 +186,13 @@ extension PhotoPreviewContentLivePhotoView: PHLivePhotoViewDelegate {
         willBeginPlaybackWith playbackStyle: PHLivePhotoViewPlaybackStyle
     ) {
         isLivePhotoAnimating = true
-        delegate?.contentView(livePhotoWillBeginPlayback: self)
     }
     func livePhotoView(
         _ livePhotoView: PHLivePhotoView,
         didEndPlaybackWith playbackStyle: PHLivePhotoViewPlaybackStyle
     ) {
         isLivePhotoAnimating = false
-        delegate?.contentView(livePhotoDidEndPlayback: self)
-        if livePhotoPlayType == .auto && livePhotoView.alpha != 0 {
+        if livePhotoPlayType == .auto && livePhotoView.alpha != 0 && !photoAsset.isDisableLivePhoto {
             livePhotoView.startPlayback(with: .full)
         }
     }

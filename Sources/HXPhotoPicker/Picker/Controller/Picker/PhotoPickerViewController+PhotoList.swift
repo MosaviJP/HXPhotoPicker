@@ -68,13 +68,16 @@ extension PhotoPickerViewController: PhotoPickerListDelegate {
     public func photoList(_ photoList: PhotoPickerList, updateAsset asset: PhotoAsset) {
         if isShowToolbar {
             photoToolbar.reloadSelectedAsset(asset)
+            requestSelectedAssetFileSize()
         }
     }
     
     public func photoList(selectedAssetDidChanged photoList: PhotoPickerList) {
-        photoToolbar.selectedAssetDidChanged(pickerController.selectedAssetArray)
+        if isShowToolbar {
+            photoToolbar.selectedAssetDidChanged(pickerController.selectedAssetArray)
+            requestSelectedAssetFileSize()
+        }
         finishItem?.selectedAssetDidChanged(pickerController.selectedAssetArray)
-        requestSelectedAssetFileSize()
     }
     
     public func photoList(_ photoList: PhotoPickerList, openEditor asset: PhotoAsset, with image: UIImage?) {
@@ -94,7 +97,7 @@ extension PhotoPickerViewController: PhotoPickerListDelegate {
         didFilterItemClick(modalPresentationStyle: modalPresentationStyle)
     }
     
-    func quickSelect(_ photoAsset: PhotoAsset, isCapture: Bool = false) {
+    public func quickSelect(_ photoAsset: PhotoAsset, isCapture: Bool = false) {
         if !photoAsset.isSelected {
             if !pickerConfig.isMultipleSelect || (pickerConfig.isSingleVideo && photoAsset.mediaType == .video) {
                 if pickerController.pickerData.canSelect(
@@ -112,7 +115,7 @@ extension PhotoPickerViewController: PhotoPickerListDelegate {
         }
     }
     
-    func openEditor(
+    public func openEditor(
         _ photoAsset: PhotoAsset,
         image: UIImage?,
         animated: Bool = true
@@ -132,7 +135,7 @@ extension PhotoPickerViewController: PhotoPickerListDelegate {
     }
     
     @discardableResult
-    func openPhotoEditor(
+    public func openPhotoEditor(
         photoAsset: PhotoAsset,
         animated: Bool = true
     ) -> Bool {
@@ -201,7 +204,7 @@ extension PhotoPickerViewController: PhotoPickerListDelegate {
     }
     
     @discardableResult
-    func openVideoEditor(
+    public func openVideoEditor(
         photoAsset: PhotoAsset,
         coverImage: UIImage? = nil,
         animated: Bool = true

@@ -71,6 +71,9 @@ public extension PhotoFetchAsset {
                     photoAsset.mediaSubType = .HDRPhoto
                 }
             }
+            photoAsset.isDisableHDR = config.isDisableHDR
+            photoAsset.isDisableLivePhoto = config.isDisableLivePhoto
+            photoAsset.isLivePhotoMuted = config.isLivePhotoMuted
             
             switch photoAsset.mediaType {
             case .photo:
@@ -89,6 +92,10 @@ public extension PhotoFetchAsset {
                 let selectPhotoAsset = selectedPhotoAssets[index]
                 asset = selectPhotoAsset
                 selectedAsset = selectPhotoAsset
+            }
+            if let selectedAssetIdentifier = config.photoList.selectedAssetIdentifier,
+               selectedAssetIdentifier == phAsset.localIdentifier {
+                selectedAsset = photoAsset
             }
             if isRemoveSelectedAsset {
                 phAssetResult.append(phAsset)
@@ -125,6 +132,10 @@ public extension PhotoFetchAsset {
             }
         }
         for asset in localAssets.reversed() {
+            if let selectedAssetIdentifier = config.photoList.selectedAssetIdentifier,
+               selectedAssetIdentifier == asset.identifier {
+                selectedAsset = asset
+            }
             photoAssets.append(asset)
             if config.isFetchDeatilsAsset {
                 if asset.mediaSubType.isNormalPhoto {

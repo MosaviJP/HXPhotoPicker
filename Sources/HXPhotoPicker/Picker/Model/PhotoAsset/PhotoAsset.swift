@@ -54,6 +54,14 @@ open class PhotoAsset: Equatable {
         }
     }
     #endif
+    
+    public var isEdited: Bool {
+        #if HXPICKER_ENABLE_EDITOR
+        editedResult != nil
+        #else
+        false
+        #endif
+    }
 
     /// 图片/视频文件大小
     /// 1000 = 1kb
@@ -100,9 +108,25 @@ open class PhotoAsset: Equatable {
     /// 选中时的下标
     public var selectIndex: Int = 0
     
+    /// 禁用HDR
+    public var isDisableHDR: Bool = false
+    
+    /// 禁用LivePhoto，禁用之后获取AssetURLResult里 livePhoto 会为 nil
+    public var isDisableLivePhoto: Bool = false
+    
+    /// LivePhoto静音
+    public var isLivePhotoMuted: Bool = false
+    
     public var isGifAsset: Bool { mediaSubType.isGif }
     public var isLocalAsset: Bool { mediaSubType.isLocal }
     public var isNetworkAsset: Bool { mediaSubType.isNetwork }
+    
+    public var identifier: String {
+        if let phAsset = phAsset {
+            return phAsset.localIdentifier
+        }
+        return localAssetIdentifier
+    }
     
     /// 根据系统相册里对应的 PHAsset 数据初始化
     /// - Parameter asset: 系统相册里对应的 PHAsset 数据
@@ -245,13 +269,6 @@ open class PhotoAsset: Equatable {
     var playerTime: CGFloat = 0
     var isScrolling = false
     var requestVideoDurationId: PHImageRequestID?
-    
-    var identifie: String {
-        if let phAsset = phAsset {
-            return phAsset.localIdentifier
-        }
-        return localAssetIdentifier
-    }
     
     public static func == (lhs: PhotoAsset, rhs: PhotoAsset) -> Bool {
         lhs.isEqual(rhs)

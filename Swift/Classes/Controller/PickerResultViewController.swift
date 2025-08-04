@@ -1050,6 +1050,13 @@ class ResultViewCell: PhotoPickerViewCell {
         contentView.addSubview(deleteButton)
     }
     
+    override func setupState() {
+        super.setupState()
+        if photoAsset.mediaSubType.isLivePhoto {
+            assetTypeLb.text = (photoAsset.isDisableLivePhoto || photoAsset.isEdited) ? nil : "Live"
+        }
+    }
+    
     override func layoutView() {
         super.layoutView()
         deleteButton.x = width - deleteButton.width

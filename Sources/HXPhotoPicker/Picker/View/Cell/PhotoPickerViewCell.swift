@@ -232,6 +232,16 @@ open class PhotoPickerViewCell: PhotoPickerBaseViewCell {
             disableMaskLayer.hxPicker_frame = photoView.bounds
             CATransaction.commit()
         }
+        loaddingView.hxPicker_frame = bounds
+        setupAssetTypeFrame()
+        if let imageSize = assetEditMarkIcon.image?.size {
+            assetEditMarkIcon.size = imageSize
+        }
+        assetEditMarkIcon.hxPicker_x = 5
+        assetEditMarkIcon.y = height - assetEditMarkIcon.height - 5
+    }
+    
+    open func setupAssetTypeFrame() {
         assetTypeLb.hxPicker_frame = CGRect(x: 0, y: height - 19, width: width - 5, height: 18)
         if let imageSize = assetTypeIcon.image?.size {
             assetTypeIcon.size = imageSize
@@ -241,13 +251,6 @@ open class PhotoPickerViewCell: PhotoPickerBaseViewCell {
         assetTypeIcon.hxPicker_x = isAssetTypeLbInRight ? 5 : (width - assetTypeIcon.width - 5)
         assetTypeIcon.y = height - assetTypeIcon.height - 5
         assetTypeLb.centerY = assetTypeIcon.centerY
-        if let imageSize = assetEditMarkIcon.image?.size {
-            assetEditMarkIcon.size = imageSize
-        }
-        assetEditMarkIcon.hxPicker_x = 5
-        assetEditMarkIcon.y = height - assetEditMarkIcon.height - 5
-        
-        loaddingView.hxPicker_frame = bounds
     }
     
     /// 设置高亮时的遮罩
@@ -273,40 +276,17 @@ open class PhotoPickerViewCell: PhotoPickerBaseViewCell {
         }
     }
     
-    open override func cancelICloudRequest() {
-        super.cancelICloudRequest()
-        iCloudMarkView.isHidden = true
-    }
-    private var didLoadCompletion: Bool = false
-    
-    deinit {
-        disableMaskLayer.backgroundColor = nil
-        cancelSyncICloud()
-    }
-}
-
-// MARK: request
-extension PhotoPickerViewCell {
-    
-    func cancelGetVideoDuration() {
-        if let avAsset = videoDurationAsset {
-            avAsset.cancelLoading()
-            videoDurationAsset = nil
-        }
-    }
-}
-
-// MARK: private
-extension PhotoPickerViewCell {
-    
-    private func setupState() {
+    open func setupState() {
         if !didLoadCompletion {
             return
         }
+        assetTypeIcon.isHidden = true
         if photoAsset.isGifAsset {
             assetTypeLb.text = .textPhotoList.cell.gifTitle.text
             assetTypeMaskView.isHidden = false
         }else if photoAsset.mediaSubType.isVideo {
+            assetTypeIcon.isHidden = false
+            assetTypeIcon.image = .imageResource.picker.photoList.cell.video.image
             if let videoTime = photoAsset.videoTime {
                 assetTypeLb.text = videoTime
             }else {
@@ -351,6 +331,28 @@ extension PhotoPickerViewCell {
             }
             #endif
         }
-        assetTypeIcon.isHidden = photoAsset.mediaType != .video
+    }
+    
+    open override func cancelICloudRequest() {
+        super.cancelICloudRequest()
+        iCloudMarkView.isHidden = true
+    }
+    
+    private var didLoadCompletion: Bool = false
+    
+    deinit {
+        disableMaskLayer.backgroundColor = nil
+        cancelSyncICloud()
+    }
+}
+
+// MARK: request
+extension PhotoPickerViewCell {
+    
+    func cancelGetVideoDuration() {
+        if let avAsset = videoDurationAsset {
+            avAsset.cancelLoading()
+            videoDurationAsset = nil
+        }
     }
 }

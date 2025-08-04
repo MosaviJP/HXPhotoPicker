@@ -150,7 +150,7 @@ public extension PhotoAsset {
                     return
                 }
                 let image = {
-                    if self.mediaSubType.isHDRPhoto {
+                    if self.mediaSubType.isHDRPhoto && !self.isDisableHDR {
                         return UIImage.HDRDecoded(dataResult.imageData)
                     } else {
                         return UIImage(data: dataResult.imageData)?.normalizedImage()
@@ -394,6 +394,7 @@ public extension PhotoAsset {
     @discardableResult
     func requestLivePhoto(
         targetSize: CGSize,
+        deliveryMode: PHImageRequestOptionsDeliveryMode = .highQualityFormat,
         iCloudHandler: PhotoAssetICloudHandler?,
         progressHandler: PhotoAssetProgressHandler?,
         success: ((PhotoAsset, PHLivePhoto, [AnyHashable: Any]?) -> Void)?,
@@ -408,7 +409,8 @@ public extension PhotoAsset {
         }
         return AssetManager.requestLivePhoto(
             for: phAsset,
-            targetSize: targetSize
+            targetSize: targetSize,
+            deliveryMode: deliveryMode
         ) { (iCloudRequestID) in
             iCloudHandler?(self, iCloudRequestID)
         } progressHandler: { (progress, _, _, _) in
@@ -465,10 +467,14 @@ public extension PhotoAsset {
         if let imageFileURL = imageFileURL {
             toImageURL = imageFileURL
         }else {
-            if let photoFormat = photoFormat {
-                toImageURL = PhotoTools.getTmpURL(for: photoFormat)
+            if isDisableLivePhoto {
+                toImageURL = PhotoTools.getTmpURL(for: "png")
             }else {
-                toImageURL = PhotoTools.getImageTmpURL()
+                if let photoFormat = photoFormat {
+                    toImageURL = PhotoTools.getTmpURL(for: photoFormat)
+                }else {
+                    toImageURL = PhotoTools.getImageTmpURL(.png)
+                }
             }
         }
         AssetManager.requestLivePhoto(
@@ -499,6 +505,10 @@ public extension PhotoAsset {
         func completionFunc(_ result: Result<AssetURLResult.LivePhoto, AssetError>) {
             switch result {
             case .success(let urlResult):
+                if isDisableLivePhoto {
+                    completion(.success(.init(url: urlResult.imageURL, urlType: .local, mediaType: .photo)))
+                    return
+                }
                 completion(.success(.init(url: urlResult.imageURL, urlType: .local, mediaType: .photo, livePhoto: urlResult)))
             case .failure(let error):
                 completion(.failure(error))
@@ -952,6 +962,10 @@ public extension PhotoAsset {
             }else {
                 imageURLType = .network
             }
+        }
+        if isDisableLivePhoto {
+            completion(.success(.init(url: imageURL, urlType: imageURLType, mediaType: .photo)))
+            return
         }
         let videoURLType: AssetURLResult.URLType
         if localLivePhoto.isCache {
