@@ -27,6 +27,49 @@ open class HXBaseViewController: UIViewController {
         )
     }
     
+    var topContainerView: UIView!
+    func initTopContainerView(_ scrollView: UIScrollView) {
+        #if canImport(UIKit.UIGlassEffect)
+        if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+            scrollView.topEdgeEffect.isHidden = false
+            topContainerView = UIView()
+            topContainerView.clipsToBounds = false
+            topContainerView.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(topContainerView)
+            let interaction = UIScrollEdgeElementContainerInteraction()
+            interaction.scrollView = scrollView
+            interaction.edge = .top
+            topContainerView.addInteraction(interaction)
+            
+            let tmpBtn = UIButton(type: .system)
+            tmpBtn.configuration = .glass()
+            let tmpItem = UIBarButtonItem(customView: tmpBtn).hidesShared()
+            let tmpToolView = UIToolbar()
+            tmpToolView.setItems([tmpItem], animated: false)
+            topContainerView.addSubview(tmpToolView)
+            tmpToolView.x = -UIScreen._width
+            tmpToolView.y = -100
+        }
+        #endif
+    }
+    
+    var bottomContainerView: UIView!
+    func initBottomContainerView(_ scrollView: UIScrollView) {
+        #if canImport(UIKit.UIGlassEffect)
+        if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+            scrollView.bottomEdgeEffect.isHidden = false
+            bottomContainerView = UIView()
+            bottomContainerView.clipsToBounds = false
+            bottomContainerView.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(bottomContainerView)
+            let interaction = UIScrollEdgeElementContainerInteraction()
+            interaction.scrollView = scrollView
+            interaction.edge = .bottom
+            bottomContainerView.addInteraction(interaction)
+        }
+        #endif
+    }
+    
     @objc
     open func deviceOrientationDidChanged(notify: Notification) {
         

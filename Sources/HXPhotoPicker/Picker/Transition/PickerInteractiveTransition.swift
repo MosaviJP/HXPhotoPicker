@@ -119,6 +119,14 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
         beganPoint = gestureRecognizer.location(in: gestureRecognizer.view)
         canInteration = true
         canTransition = true
+        
+        if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+            if let viewControllers = previewViewController.navigationController?.viewControllers,
+               viewControllers.count > 1,
+               let vc = viewControllers[viewControllers.count - 2] as? PhotoPickerViewController {
+                vc.titleView?.alpha = 0
+            }
+        }
         previewViewController.navigationController?.popViewController(animated: true)
     }
     
@@ -195,6 +203,11 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
         }else {
             toVC?.navigationController?.navigationBar.alpha = 1 - alpha
             toVC?.photoToolbar.alpha = 1 - alpha
+        }
+        if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+            toVC?.photoToolbar?.alpha = 1 - alpha
+            toVC?.bottomContainerView?.alpha = 1 - alpha
+            toVC?.titleView?.alpha = 1 - alpha
         }
         if let picker = pickerController {
             picker.pickerDelegate?
@@ -276,7 +289,13 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
                 if self.type == .pop {
                     toVC?.navigationController?.navigationBar.alpha = 0
                     toVC?.photoToolbar.alpha = 0
+                    if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+                        toVC?.bottomContainerView?.alpha = 0
+                    }
                 }
+            }
+            if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+                toVC?.titleView?.alpha = 0
             }
             if let picker = self.pickerController {
                 picker.pickerDelegate?
@@ -362,6 +381,11 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
                 toVC?.photoToolbar.alpha = 1
                 toVC?.navigationController?.navigationBar.alpha = 1
             }
+            if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+                toVC?.photoToolbar.alpha = 1
+                toVC?.bottomContainerView?.alpha = 1
+                toVC?.titleView?.alpha = 1
+            }
         } completion: { _ in
             self.backgroundView.removeFromSuperview()
             toVC?.listView.view.layer.removeAllAnimations()
@@ -440,6 +464,9 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
                 self.previewViewController?.view.addGestureRecognizer(self.panGestureRecognizer)
             }
             return
+        }
+        if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+            pickerViewController.titleView?.alpha = 0
         }
         self.transitionContext = transitionContext
         previewBackgroundColor = previewViewController.view.backgroundColor
@@ -531,6 +558,10 @@ class PickerInteractiveTransition: UIPercentDrivenInteractiveTransition, UIGestu
         }else {
             previewViewController.photoToolbar.mask = nil
             pickerViewController.photoToolbar.mask = nil
+            if #available(iOS 26.0, *), !PhotoManager.isIos26Compatibility  {
+                pickerViewController.photoToolbar?.alpha = 0
+                pickerViewController.bottomContainerView?.alpha = 0
+            }
         }
         resetScrollView(for: false)
         toView?.isHidden = true
