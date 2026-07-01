@@ -7,12 +7,22 @@
 
 import UIKit
 import AVFoundation
+import ImageIO
+import UniformTypeIdentifiers
 
 extension EditorViewController {
+    
+    private struct PreparedEditorImage {
+        let image: UIImage
+        let imageData: Data?
+        let isHEIC: Bool
+        let isJPEG: Bool
+    }
     
     enum LoadAssetStatus {
         case loadding(Bool = false)
         case succeed(EditorAsset.AssetType)
+        case imageURL(URL)
         case failure
     }
     
@@ -28,25 +38,19 @@ extension EditorViewController {
                 loadAssetStatus = .succeed(.image(image))
                 return
             }
-            editorView.setImage(image)
-            DispatchQueue.global().async {
-                self.loadThumbnailImage(image, viewSize: viewSize)
-            }
-            loadCompletion()
-            loadLastEditedData()
+            loadImageForEditing(
+                image,
+                viewSize: viewSize
+            )
         case .imageData(let imageData):
             if !isTransitionCompletion {
                 loadAssetStatus = .succeed(.imageData(imageData))
                 return
             }
-            editorView.isHEICImage = imageData.isHEIC
-            editorView.setImageData(imageData)
-            let image = self.editorView.image
-            DispatchQueue.global().async {
-                self.loadThumbnailImage(image, viewSize: viewSize)
-            }
-            loadCompletion()
-            loadLastEditedData()
+            loadImageDataForEditing(
+                imageData,
+                viewSize: viewSize
+            )
         case .video(let url):
             if !isTransitionCompletion {
                 loadAssetStatus = .succeed(.video(url))
@@ -76,6 +80,669 @@ extension EditorViewController {
         case .photoAsset(let photoAsset):
             loadPhotoAsset(photoAsset)
         #endif
+        }
+    }
+    
+    private func loadImageForEditing(
+        _ image: UIImage,
+        imageData: Data? = nil,
+        viewSize: CGSize,
+        dismissLoadingView: Bool = false,
+        failureMessage: String = .textManager.editor.photoLoadFailedAlertMessage.text
+    ) {
+        if let imageData {
+            loadImageDataForEditing(
+                imageData,
+                viewSize: viewSize,
+                dismissLoadingView: dismissLoadingView,
+                failureMessage: failureMessage
+            )
+            return
+        }
+        prepareImageForEditing(
+            image,
+            imageData: nil
+        ) { [weak self] result in
+            guard let self = self else {
+                return
+            }
+            DispatchQueue.main.async {
+                if dismissLoadingView {
+                    PhotoManager.HUDView.dismiss(
+                        delay: 0,
+                        animated: true,
+                        for: self.view
+                    )
+                }
+                guard let result = result else {
+                    self.loadFailure(message: failureMessage)
+                    return
+                }
+                self.finishImageLoad(result, viewSize: viewSize)
+            }
+        }
+    }
+    
+    private func loadImageDataForEditing(
+        _ imageData: Data,
+        viewSize: CGSize,
+        dismissLoadingView: Bool = false,
+        failureMessage: String = .textManager.editor.photoLoadFailedAlertMessage.text
+    ) {
+        prepareImageDataForEditing(imageData) { [weak self] result in
+            guard let self = self else {
+                return
+            }
+            DispatchQueue.main.async {
+                if dismissLoadingView {
+                    PhotoManager.HUDView.dismiss(
+                        delay: 0,
+                        animated: true,
+                        for: self.view
+                    )
+                }
+                guard let result = result else {
+                    self.loadFailure(message: failureMessage)
+                    return
+                }
+                self.finishImageLoad(result, viewSize: viewSize)
+            }
+        }
+    }
+
+    func loadImageURLForEditing(
+        _ url: URL,
+        viewSize: CGSize,
+        dismissLoadingView: Bool = false,
+        failureMessage: String = .textManager.editor.photoLoadFailedAlertMessage.text
+    ) {
+        prepareImageURLForEditing(url) { [weak self] result in
+            guard let self = self else {
+                return
+            }
+            DispatchQueue.main.async {
+                if dismissLoadingView {
+                    PhotoManager.HUDView.dismiss(
+                        delay: 0,
+                        animated: true,
+                        for: self.view
+                    )
+                }
+                guard let result = result else {
+                    self.loadFailure(message: failureMessage)
+                    return
+                }
+                self.finishImageLoad(result, viewSize: viewSize)
+            }
+        }
+    }
+    
+    private func finishImageLoad(
+        _ result: PreparedEditorImage,
+        viewSize: CGSize
+    ) {
+        editorView.isHEICImage = result.isHEIC
+        editorView.isJPEGImage = result.isJPEG
+        if let imageData = result.imageData {
+            editorView.setImageData(imageData)
+        }else {
+            editorView.setImage(result.image)
+        }
+        loadCompletion()
+        loadLastEditedData()
+        DispatchQueue.global().async {
+            self.loadThumbnailImage(result.image, viewSize: viewSize)
+        }
+    }
+    
+    private func prepareImageDataForEditing(
+        _ imageData: Data,
+        completion: @escaping (PreparedEditorImage?) -> Void
+    ) {
+        let queue = DispatchQueue(
+            label: "HXPhotoPicker.editor.prepareImageDataForEditing",
+            qos: .userInitiated,
+            attributes: [],
+            autoreleaseFrequency: .workItem,
+            target: nil
+        )
+        queue.async {
+            autoreleasepool {
+                completion(self.prepareImageDataForEditing(imageData))
+            }
+        }
+    }
+    
+    private func prepareImageForEditing(
+        _ image: UIImage,
+        imageData: Data? = nil,
+        completion: @escaping (PreparedEditorImage?) -> Void
+    ) {
+        let queue = DispatchQueue(
+            label: "HXPhotoPicker.editor.prepareImageForEditing",
+            qos: .userInitiated,
+            attributes: [],
+            autoreleaseFrequency: .workItem,
+            target: nil
+        )
+        queue.async {
+            autoreleasepool {
+                completion(
+                    self.prepareImageForEditing(
+                        image,
+                        imageData: imageData
+                    )
+                )
+            }
+        }
+    }
+
+    private func prepareImageURLForEditing(
+        _ url: URL,
+        completion: @escaping (PreparedEditorImage?) -> Void
+    ) {
+        let queue = DispatchQueue(
+            label: "HXPhotoPicker.editor.prepareImageURLForEditing",
+            qos: .userInitiated,
+            attributes: [],
+            autoreleaseFrequency: .workItem,
+            target: nil
+        )
+        queue.async {
+            autoreleasepool {
+                completion(self.prepareImageURLForEditing(url))
+            }
+        }
+    }
+    
+    private func prepareImageForEditing(
+        _ image: UIImage,
+        imageData: Data?
+    ) -> PreparedEditorImage? {
+        let sourceImage = image.normalizedImage() ?? image
+        let sourceIsGIF = imageData?.isGif == true
+        let sourceIsHEIC = imageData?.isHEIC == true
+        let sourceIsJPEG = !sourceIsHEIC && imageData?.imageContentType == .jpg
+        let maxPixelLength = editorImageMaxPixelLength(for: sourceImage)
+        let threshold = editorImageCompressionThreshold
+        if sourceIsGIF || maxPixelLength <= threshold {
+            return .init(
+                image: sourceImage,
+                imageData: imageData,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        let compressionScale = threshold / maxPixelLength
+        guard let scaledImage = sourceImage.scaleImage(toScale: compressionScale) else {
+            return .init(
+                image: sourceImage,
+                imageData: imageData,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        let compressedData = compressedEditorImageData(
+            for: scaledImage,
+            sourceIsHEIC: sourceIsHEIC,
+            sourceIsJPEG: sourceIsJPEG
+        )
+        guard let compressedData,
+              let compressedImage = UIImage(data: compressedData)?.normalizedImage() else {
+            return .init(
+                image: scaledImage,
+                imageData: nil,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        return .init(
+            image: compressedImage,
+            imageData: compressedData,
+            isHEIC: compressedData.isHEIC,
+            isJPEG: !compressedData.isHEIC && compressedData.imageContentType == .jpg
+        )
+    }
+
+    private func prepareImageURLForEditing(
+        _ url: URL
+    ) -> PreparedEditorImage? {
+        guard let imageSource = CGImageSourceCreateWithURL(
+            url as CFURL,
+            editorImageSourceOptions
+        ) else {
+            if let imageData = editorImageData(contentsOf: url) {
+                return prepareImageDataForEditing(imageData)
+            }
+            guard let image = UIImage(contentsOfFile: url.path)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(image, imageData: nil)
+        }
+        let maxPixelLength = editorImageMaxPixelLength(for: imageSource)
+        let sourceIsGIF = url.isGif || editorImageSourceIsGIF(imageSource)
+        let sourceIsHEIC = editorImageSourceIsHEIC(imageSource)
+        let sourceIsJPEG = !sourceIsHEIC && editorImageSourceIsJPEG(imageSource)
+        if sourceIsGIF {
+            guard let imageData = editorImageData(contentsOf: url) else {
+                return nil
+            }
+            return prepareAnimatedImageDataForEditing(
+                imageSource,
+                originalData: imageData,
+                maxPixelLength: maxPixelLength
+            )
+        }
+        guard maxPixelLength > 0 else {
+            if let imageData = editorImageData(contentsOf: url) {
+                return prepareImageDataForEditing(imageData)
+            }
+            guard let image = UIImage(contentsOfFile: url.path)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(image, imageData: nil)
+        }
+        if maxPixelLength <= editorImageCompressionThreshold {
+            if let imageData = editorImageData(contentsOf: url),
+               let image = UIImage(data: imageData)?.normalizedImage() {
+                return .init(
+                    image: image,
+                    imageData: imageData,
+                    isHEIC: sourceIsHEIC,
+                    isJPEG: sourceIsJPEG
+                )
+            }
+            guard let image = UIImage(contentsOfFile: url.path)?.normalizedImage() else {
+                return nil
+            }
+            return .init(
+                image: image,
+                imageData: nil,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        guard let scaledImage = editorImage(
+            from: imageSource,
+            maxPixelSize: editorImageCompressionThreshold
+        ) else {
+            if let imageData = editorImageData(contentsOf: url) {
+                return prepareImageDataForEditing(imageData)
+            }
+            guard let image = UIImage(contentsOfFile: url.path)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(image, imageData: nil)
+        }
+        let compressedData = compressedEditorImageData(
+            for: scaledImage,
+            sourceIsHEIC: sourceIsHEIC,
+            sourceIsJPEG: sourceIsJPEG
+        )
+        guard let compressedData,
+              let compressedImage = UIImage(data: compressedData)?.normalizedImage() else {
+            return .init(
+                image: scaledImage,
+                imageData: nil,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        return .init(
+            image: compressedImage,
+            imageData: compressedData,
+            isHEIC: compressedData.isHEIC,
+            isJPEG: !compressedData.isHEIC && compressedData.imageContentType == .jpg
+        )
+    }
+
+    private func prepareImageDataForEditing(
+        _ imageData: Data
+    ) -> PreparedEditorImage? {
+        guard let imageSource = CGImageSourceCreateWithData(
+            imageData as CFData,
+            editorImageSourceOptions
+        ) else {
+            guard let image = UIImage(data: imageData)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(
+                image,
+                imageData: imageData
+            )
+        }
+        let maxPixelLength = editorImageMaxPixelLength(for: imageSource)
+        if imageData.isGif {
+            return prepareAnimatedImageDataForEditing(
+                imageSource,
+                originalData: imageData,
+                maxPixelLength: maxPixelLength
+            )
+        }
+        guard maxPixelLength > 0 else {
+            guard let image = UIImage(data: imageData)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(
+                image,
+                imageData: imageData
+            )
+        }
+        let sourceIsHEIC = imageData.isHEIC
+        let sourceIsJPEG = !sourceIsHEIC && imageData.imageContentType == .jpg
+        if maxPixelLength <= editorImageCompressionThreshold {
+            guard let image = UIImage(data: imageData)?.normalizedImage() else {
+                return nil
+            }
+            return .init(
+                image: image,
+                imageData: imageData,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        guard let scaledImage = editorImage(
+            from: imageSource,
+            maxPixelSize: editorImageCompressionThreshold
+        ) else {
+            guard let image = UIImage(data: imageData)?.normalizedImage() else {
+                return nil
+            }
+            return prepareImageForEditing(
+                image,
+                imageData: imageData
+            )
+        }
+        let compressedData = compressedEditorImageData(
+            for: scaledImage,
+            sourceIsHEIC: sourceIsHEIC,
+            sourceIsJPEG: sourceIsJPEG
+        )
+        guard let compressedData,
+              let compressedImage = UIImage(data: compressedData)?.normalizedImage() else {
+            return .init(
+                image: scaledImage,
+                imageData: nil,
+                isHEIC: sourceIsHEIC,
+                isJPEG: sourceIsJPEG
+            )
+        }
+        return .init(
+            image: compressedImage,
+            imageData: compressedData,
+            isHEIC: compressedData.isHEIC,
+            isJPEG: !compressedData.isHEIC && compressedData.imageContentType == .jpg
+        )
+    }
+
+    private func prepareAnimatedImageDataForEditing(
+        _ imageSource: CGImageSource,
+        originalData: Data,
+        maxPixelLength: CGFloat
+    ) -> PreparedEditorImage? {
+        let previewMaxPixelSize = min(
+            maxPixelLength > 0 ? maxPixelLength : editorImageCompressionThreshold,
+            editorImageCompressionThreshold
+        )
+        guard let previewImage = editorImage(
+            from: imageSource,
+            maxPixelSize: previewMaxPixelSize
+        ) ?? UIImage(data: originalData)?.normalizedImage() else {
+            return nil
+        }
+        if maxPixelLength <= editorImageCompressionThreshold {
+            return .init(
+                image: previewImage,
+                imageData: originalData,
+                isHEIC: false,
+                isJPEG: false
+            )
+        }
+        guard let compressedResult = compressedAnimatedEditorImageData(
+            from: imageSource,
+            maxPixelSize: editorImageCompressionThreshold
+        ) else {
+            return .init(
+                image: previewImage,
+                imageData: originalData,
+                isHEIC: false,
+                isJPEG: false
+            )
+        }
+        return .init(
+            image: compressedResult.image,
+            imageData: compressedResult.data,
+            isHEIC: false,
+            isJPEG: false
+        )
+    }
+    
+    private var editorImageCompressionThreshold: CGFloat {
+        UIScreen._scale * max(UIDevice.screenSize.width, UIDevice.screenSize.height)
+    }
+
+    private var editorImageSourceOptions: CFDictionary {
+        [
+            kCGImageSourceShouldCache: false
+        ] as CFDictionary
+    }
+    
+    private func editorImageMaxPixelLength(
+        for image: UIImage
+    ) -> CGFloat {
+        if let cgImage = image.cgImage {
+            return max(CGFloat(cgImage.width), CGFloat(cgImage.height))
+        }
+        return max(image.size.width * image.scale, image.size.height * image.scale)
+    }
+
+    private func editorImageMaxPixelLength(
+        for imageSource: CGImageSource
+    ) -> CGFloat {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(
+            imageSource,
+            0,
+            nil
+        ) as? [CFString: Any] else {
+            return 0
+        }
+        let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue ?? 0
+        let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue ?? 0
+        return max(width, height)
+    }
+
+    private func editorImage(
+        from imageSource: CGImageSource,
+        maxPixelSize: CGFloat
+    ) -> UIImage? {
+        guard let cgImage = editorCGImage(
+            from: imageSource,
+            at: 0,
+            maxPixelSize: maxPixelSize
+        ) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    private func editorImageSourceIdentifier(
+        for imageSource: CGImageSource
+    ) -> String? {
+        (CGImageSourceGetType(imageSource) as String?)?.lowercased()
+    }
+
+    private func editorImageSourceIsGIF(
+        _ imageSource: CGImageSource
+    ) -> Bool {
+        editorImageSourceIdentifier(for: imageSource)?.contains("gif") == true
+    }
+
+    private func editorImageSourceIsHEIC(
+        _ imageSource: CGImageSource
+    ) -> Bool {
+        guard let identifier = editorImageSourceIdentifier(for: imageSource) else {
+            return false
+        }
+        return identifier.contains("heic") || identifier.contains("heif")
+    }
+
+    private func editorImageSourceIsJPEG(
+        _ imageSource: CGImageSource
+    ) -> Bool {
+        guard let identifier = editorImageSourceIdentifier(for: imageSource) else {
+            return false
+        }
+        return identifier.contains("jpeg") || identifier.contains("jpg")
+    }
+
+    private func editorCGImage(
+        from imageSource: CGImageSource,
+        at index: Int,
+        maxPixelSize: CGFloat
+    ) -> CGImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceThumbnailMaxPixelSize: max(1, Int(ceil(maxPixelSize)))
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(
+            imageSource,
+            index,
+            options as CFDictionary
+        )
+    }
+
+    private func compressedAnimatedEditorImageData(
+        from imageSource: CGImageSource,
+        maxPixelSize: CGFloat
+    ) -> (image: UIImage, data: Data)? {
+        let frameCount = CGImageSourceGetCount(imageSource)
+        guard frameCount > 0 else {
+            return nil
+        }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            editorGIFTypeIdentifier,
+            frameCount,
+            nil
+        ) else {
+            return nil
+        }
+        let gifProperty = [
+            kCGImagePropertyGIFDictionary: [
+                kCGImagePropertyGIFHasGlobalColorMap: true,
+                kCGImagePropertyColorModel: kCGImagePropertyColorModelRGB,
+                kCGImagePropertyDepth: 8,
+                kCGImagePropertyGIFLoopCount: 0
+            ] as [CFString: Any]
+        ]
+        CGImageDestinationSetProperties(destination, gifProperty as CFDictionary)
+        var previewImage: UIImage?
+        for index in 0..<frameCount {
+            guard let cgImage = editorCGImage(
+                from: imageSource,
+                at: index,
+                maxPixelSize: maxPixelSize
+            ) else {
+                return nil
+            }
+            if previewImage == nil {
+                previewImage = UIImage(cgImage: cgImage)
+            }
+            let frameProperty = [
+                kCGImagePropertyGIFDictionary: [
+                    kCGImagePropertyGIFDelayTime: PhotoTools.getFrameDuration(
+                        from: imageSource,
+                        at: index
+                    )
+                ] as [CFString: Any]
+            ]
+            CGImageDestinationAddImage(
+                destination,
+                cgImage,
+                frameProperty as CFDictionary
+            )
+        }
+        guard let previewImage,
+              CGImageDestinationFinalize(destination) else {
+            return nil
+        }
+        return (previewImage, data as Data)
+    }
+
+    private var editorGIFTypeIdentifier: CFString {
+        if #available(iOS 14.0, *) {
+            return UTType.gif.identifier as CFString
+        }
+        return "com.compuserve.gif" as CFString
+    }
+    
+    private func compressedEditorImageData(
+        for image: UIImage,
+        sourceIsHEIC: Bool,
+        sourceIsJPEG: Bool
+    ) -> Data? {
+        let compressionQuality: CGFloat = 0.7
+        let hasAlpha = editorImageHasAlpha(image)
+        if let cgImage = image.cgImage ?? image.ci_Image?.cg_Image {
+            if hasAlpha {
+                if editorSupportsHEICEncoding,
+                   let data = cgImage.heicData(quality: compressionQuality) {
+                    return data
+                }
+                return image.pngData()
+            }
+            if sourceIsHEIC && editorSupportsHEICEncoding,
+               let data = cgImage.heicData(quality: compressionQuality) {
+                return data
+            }
+            if sourceIsJPEG || !sourceIsHEIC,
+               let data = cgImage.jpegData(quality: compressionQuality) {
+                return data
+            }
+            if editorSupportsHEICEncoding,
+               let data = cgImage.heicData(quality: compressionQuality) {
+                return data
+            }
+        }
+        if hasAlpha {
+            return image.pngData()
+        }
+        return image.jpegData(compressionQuality: compressionQuality)
+    }
+
+    private var editorSupportsHEICEncoding: Bool {
+        let heicIdentifier: String
+        if #available(iOS 14.0, *) {
+            heicIdentifier = UTType.heic.identifier
+        }else {
+            heicIdentifier = "public.heic"
+        }
+        guard let identifiers = CGImageDestinationCopyTypeIdentifiers() as? [String] else {
+            return false
+        }
+        return identifiers.contains(heicIdentifier)
+    }
+
+    private func editorImageData(
+        contentsOf url: URL
+    ) -> Data? {
+        try? Data(contentsOf: url, options: .mappedIfSafe)
+    }
+    
+    private func editorImageHasAlpha(
+        _ image: UIImage
+    ) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else {
+            return false
+        }
+        switch alphaInfo {
+        case .premultipliedLast, .premultipliedFirst, .last, .first, .alphaOnly:
+            return true
+        default:
+            return false
         }
     }
     
@@ -545,29 +1212,30 @@ extension EditorViewController {
             switch $0 {
             case .success(let result):
                 if !self.isTransitionCompletion {
-                    if let image = result.image {
-                        self.loadAssetStatus = .succeed(.image(image))
-                    }else if let imageData = result.imageData {
+                    if let imageData = result.imageData {
                         self.loadAssetStatus = .succeed(.imageData(imageData))
+                    }else if let image = result.image {
+                        self.loadAssetStatus = .succeed(.image(image))
                     }
                     return
                 }
-                if let image  = result.image {
-                    self.editorView.setImage(image)
-                }else if let imageData = result.imageData {
-                    self.editorView.setImageData(imageData)
-                }
-                self.loadCompletion()
-                self.loadLastEditedData()
                 let viewSize = UIDevice.screenSize
-                DispatchQueue.global().async {
-                    if let image = result.image {
-                        self.loadThumbnailImage(image, viewSize: viewSize)
-                    }else if let imageData = result.imageData, let image = UIImage(data: imageData) {
-                        self.loadThumbnailImage(image, viewSize: viewSize)
-                    }
+                if let imageData = result.imageData {
+                    self.loadImageDataForEditing(
+                        imageData,
+                        viewSize: viewSize,
+                        dismissLoadingView: true
+                    )
+                }else if let image = result.image {
+                    self.loadImageForEditing(
+                        image,
+                        viewSize: viewSize,
+                        dismissLoadingView: true
+                    )
+                }else {
+                    PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
+                    self.loadFailure(message: .textManager.editor.photoLoadFailedAlertMessage.text)
                 }
-                PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
             case .failure:
                 if !self.isTransitionCompletion {
                     self.loadAssetStatus = .failure
@@ -612,48 +1280,44 @@ extension EditorViewController {
         let viewSize = UIDevice.screenSize
         DispatchQueue.global().async {
             if photoAsset.mediaType == .photo {
-                var image: UIImage?
-                if let img = photoAsset.localImageAsset?.image?.normalizedImage() {
-                    image = img
-                }else if let localLivePhoto = photoAsset.localLivePhoto,
-                         localLivePhoto.imageURL.isFileURL,
-                         let img = UIImage(contentsOfFile: localLivePhoto.imageURL.path)?.normalizedImage() {
-                    image = img
-                }
-                var imageData: Data?
-                if photoAsset.mediaSubType.isGif {
-                    if let data = photoAsset.localImageAsset?.imageData {
-                        imageData = data
-                    }else if let imageURL = photoAsset.localImageAsset?.imageURL,
-                             let data = try? Data(contentsOf: imageURL) {
-                        imageData = data
-                    }
-                }
+                let imageURL = photoAsset.localImageAsset?.imageURL
+                    ?? (photoAsset.localLivePhoto?.imageURL.isFileURL == true ? photoAsset.localLivePhoto?.imageURL : nil)
+                let imageData = photoAsset.localImageAsset?.imageData
+                    ?? (photoAsset.mediaSubType.isGif ? imageURL.flatMap { self.editorImageData(contentsOf: $0) } : nil)
+                let image = imageData == nil && imageURL == nil
+                    ? photoAsset.localImageAsset?.image?.normalizedImage()
+                    : nil
                 DispatchQueue.main.async {
                     if let imageData {
                         if !self.isTransitionCompletion {
                             self.loadAssetStatus = .succeed(.imageData(imageData))
                             return
                         }
-                        PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                        self.editorView.setImageData(imageData)
-                        self.loadCompletion()
-                        self.loadLastEditedData()
-                        DispatchQueue.global().async {
-                            self.loadThumbnailImage(.init(data: imageData), viewSize: viewSize)
+                        self.loadImageDataForEditing(
+                            imageData,
+                            viewSize: viewSize,
+                            dismissLoadingView: true
+                        )
+                    }else if let imageURL {
+                        if !self.isTransitionCompletion {
+                            self.loadAssetStatus = .imageURL(imageURL)
+                            return
                         }
+                        self.loadImageURLForEditing(
+                            imageURL,
+                            viewSize: viewSize,
+                            dismissLoadingView: true
+                        )
                     }else if let image {
                         if !self.isTransitionCompletion {
                             self.loadAssetStatus = .succeed(.image(image))
                             return
                         }
-                        PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                        self.editorView.setImage(image)
-                        self.loadCompletion()
-                        self.loadLastEditedData()
-                        DispatchQueue.global().async {
-                            self.loadThumbnailImage(image, viewSize: viewSize)
-                        }
+                        self.loadImageForEditing(
+                            image,
+                            viewSize: viewSize,
+                            dismissLoadingView: true
+                        )
                     }else {
                         if !self.isTransitionCompletion {
                             self.loadAssetStatus = .failure
@@ -708,17 +1372,19 @@ extension EditorViewController {
                     }
                     return
                 }
-                PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                if let imageData {
-                    self.editorView.setImageData(imageData)
-                }else if let image {
-                    self.editorView.setImage(image)
-                }
-                self.loadCompletion()
-                self.loadLastEditedData()
                 let viewSize = UIDevice.screenSize
-                DispatchQueue.global().async {
-                    self.loadThumbnailImage(image, viewSize: viewSize)
+                if let imageData {
+                    self.loadImageDataForEditing(
+                        imageData,
+                        viewSize: viewSize,
+                        dismissLoadingView: true
+                    )
+                }else if let image {
+                    self.loadImageForEditing(
+                        image,
+                        viewSize: viewSize,
+                        dismissLoadingView: true
+                    )
                 }
             }else {
                 if !self.isTransitionCompletion {
@@ -761,28 +1427,16 @@ extension EditorViewController {
                     switch result {
                     case .success(let dataResult):
                         if AssetManager.assetDownloadFinined(for: dataResult.info) || AssetManager.assetCancelDownload(for: dataResult.info) {
-                            let image = UIImage(data: dataResult.imageData)
-                            guard let image = image else {
-                                self.loadAssetStatus = .failure
-                                PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                                return
-                            }
-                            if let dataUTI = dataResult.dataUTI {
-                                self.editorView.isHEICImage = dataUTI.contains("heic")
-                                self.editorView.isJPEGImage = dataUTI.contains("jpeg")
-                            }
                             if !self.isTransitionCompletion {
-                                self.loadAssetStatus = .succeed(.image(image))
+                                self.loadAssetStatus = .succeed(.imageData(dataResult.imageData))
                                 return
                             }
-                            self.editorView.setImage(image)
-                            self.loadCompletion()
-                            self.loadLastEditedData()
                             let viewSize = UIDevice.screenSize
-                            DispatchQueue.global().async {
-                                self.loadThumbnailImage(image, viewSize: viewSize)
-                            }
-                            PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
+                            self.loadImageDataForEditing(
+                                dataResult.imageData,
+                                viewSize: viewSize,
+                                dismissLoadingView: true
+                            )
                         }
                     case .failure(let error):
                         if !self.isTransitionCompletion {
@@ -816,45 +1470,20 @@ extension EditorViewController {
             filterEditor: true
         ) { [weak self] result in
             guard let self = self else { return }
+            let viewSize = UIDevice.screenSize
             switch result {
             case .success(let response):
-                DispatchQueue.global().async {
-                    let imageURL = response.url
-                    if photoAsset.isGifAsset == true,
-                       let imageData = try? Data(contentsOf: imageURL) {
-                        DispatchQueue.main.async {
-                            if !self.isTransitionCompletion {
-                                self.loadAssetStatus = .succeed(.imageData(imageData))
-                                return
-                            }
-                            self.editorView.setImageData(imageData)
-                            self.loadCompletion()
-                            self.loadLastEditedData()
-                            let viewSize = UIDevice.screenSize
-                            DispatchQueue.global().async {
-                                self.loadThumbnailImage(.init(contentsOfFile: imageURL.path), viewSize: viewSize)
-                            }
-                            PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                        }
+                let imageURL = response.url
+                DispatchQueue.main.async {
+                    if !self.isTransitionCompletion {
+                        self.loadAssetStatus = .imageURL(imageURL)
                         return
                     }
-                    if let image = UIImage(contentsOfFile: imageURL.path)?.scaleSuitableSize()?.normalizedImage() {
-                        DispatchQueue.main.async {
-                            if !self.isTransitionCompletion {
-                                self.loadAssetStatus = .succeed(.image(image))
-                                return
-                            }
-                            self.editorView.setImage(image)
-                            self.loadCompletion()
-                            self.loadLastEditedData()
-                            let viewSize = UIDevice.screenSize
-                            DispatchQueue.global().async {
-                                self.loadThumbnailImage(image, viewSize: viewSize)
-                            }
-                            PhotoManager.HUDView.dismiss(delay: 0, animated: true, for: self.view)
-                        }
-                        return
-                    }
+                    self.loadImageURLForEditing(
+                        imageURL,
+                        viewSize: viewSize,
+                        dismissLoadingView: true
+                    )
                 }
             case .failure:
                 if !self.isTransitionCompletion {

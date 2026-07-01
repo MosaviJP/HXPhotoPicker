@@ -41,6 +41,25 @@ extension Data {
             }
             return false
     }
+
+    var imageFileExtension: String {
+        if isGif {
+            return "gif"
+        }
+        if isHEIC {
+            return "heic"
+        }
+        switch imageContentType {
+        case .jpg:
+            return "jpeg"
+        case .png:
+            return "png"
+        case .gif:
+            return "gif"
+        default:
+            return "png"
+        }
+    }
     
     var fileType: FileType {
         guard let firstByte = first else {

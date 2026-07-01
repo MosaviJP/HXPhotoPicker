@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import ImageIO
+import UniformTypeIdentifiers
 
 extension EditorAdjusterView {
     
@@ -244,7 +246,7 @@ extension EditorAdjusterView {
             if let config = self.urlConfig {
                 urlConfig = config
             }else {
-                let fileName = String.fileName(suffix: data.isGif ? "gif" : (isJPEGImage ? "jpeg" : "png"))
+                let fileName = String.fileName(suffix: data.imageFileExtension)
                 urlConfig = .init(fileName: fileName, type: .temp)
             }
             if PhotoTools.write(toFile: urlConfig.url, imageData: data) == nil {
@@ -293,11 +295,12 @@ extension EditorAdjusterView {
                 return inputImage.jpegData(compressionQuality: compressionQuality)
             }
             if isHEICImage {
-                if #available(iOS 17.0, *) {
-                    return inputImage.heicData()
-                } else {
-                    return inputImage.jpegData(compressionQuality: compressionQuality)
+                if editorSupportsHEICEncoding,
+                   let imageRef = inputImage.cgImage ?? inputImage.ci_Image?.cg_Image,
+                   let data = imageRef.heicData(quality: compressionQuality) {
+                    return data
                 }
+                return inputImage.jpegData(compressionQuality: compressionQuality)
             }
             return inputImage.pngData()
         }
@@ -395,11 +398,19 @@ extension EditorAdjusterView {
             newImageRef = _newImageRef
         }
         if isHEICImage {
-            return newImageRef.heicData(quality: compressionQuality)
+            if editorSupportsHEICEncoding,
+               let data = newImageRef.heicData(quality: compressionQuality) {
+                return data
+            }
+            return hasAlpha ? newImageRef.pngData() : newImageRef.jpegData(quality: compressionQuality)
         }
         if isJPEGImage {
             if hasAlpha {
-                return newImageRef.heicData(quality: compressionQuality)
+                if editorSupportsHEICEncoding,
+                   let data = newImageRef.heicData(quality: compressionQuality) {
+                    return data
+                }
+                return newImageRef.pngData()
             }else {
                 return newImageRef.jpegData(quality: compressionQuality)
             }
@@ -512,6 +523,19 @@ extension EditorAdjusterView {
             return nil
         }
         return image.merge(images: [overlayImage], scale: exportScale)
+    }
+
+    fileprivate var editorSupportsHEICEncoding: Bool {
+        let heicIdentifier: String
+        if #available(iOS 14.0, *) {
+            heicIdentifier = UTType.heic.identifier
+        }else {
+            heicIdentifier = "public.heic"
+        }
+        guard let identifiers = CGImageDestinationCopyTypeIdentifiers() as? [String] else {
+            return false
+        }
+        return identifiers.contains(heicIdentifier)
     }
     
     fileprivate func getCompressionQuality(_ dataCount: CGFloat, imageSize: CGSize) -> CGFloat? {

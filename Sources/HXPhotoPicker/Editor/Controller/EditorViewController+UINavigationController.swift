@@ -166,6 +166,14 @@ extension EditorViewController {
             bringViews()
         case .succeed(let type):
             initAssetType(type)
+        case .imageURL(let url):
+            PhotoManager.HUDView.show(with: nil, delay: 0, animated: true, addedTo: view)
+            bringViews()
+            loadImageURLForEditing(
+                url,
+                viewSize: UIDevice.screenSize,
+                dismissLoadingView: true
+            )
         case .failure:
             if selectedAsset.contentType == .video {
                 loadFailure(message: .textManager.editor.videoLoadFailedAlertMessage.text)

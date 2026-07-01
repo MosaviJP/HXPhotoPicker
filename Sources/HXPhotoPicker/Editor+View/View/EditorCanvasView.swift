@@ -99,6 +99,7 @@ class EditorCanvasView: UIView {
         quitDrawing()
         drawingHistory = drawingCurrentHistory
         index = currentIndex
+        isDrawing = false
     }
     
     func enterDrawing() -> PKToolPicker? {
@@ -128,6 +129,25 @@ class EditorCanvasView: UIView {
     var image: UIImage {
         canvasView.drawing.image(from: bounds, scale: exportScale)
     }
+
+    private func updateCanvasDrawing(
+        with data: EditorCanvasData,
+        draws: [PKDrawing]
+    ) throws {
+        if #available(iOS 14.0, *) {
+            if data.index < draws.count, data.index >= 0 {
+                canvasView.drawing = draws[data.index]
+            }else {
+                canvasView.drawing = .init()
+            }
+        }else {
+            if !data.data.isEmpty {
+                canvasView.drawing = try PKDrawing(data: data.data)
+            }else {
+                canvasView.drawing = .init()
+            }
+        }
+    }
     
     var data: EditorCanvasData? {
         if isEmpty {
@@ -150,13 +170,7 @@ class EditorCanvasView: UIView {
         do {
             let draws = try data.historyDrawings(viewSize)
             isClear = true
-            if #available(iOS 14.0, *) {
-                if data.index < draws.count, data.index >= 0 {
-                    canvasView.drawing = draws[data.index]
-                }
-            }else {
-                canvasView.drawing = try PKDrawing(data: data.data)
-            }
+            try updateCanvasDrawing(with: data, draws: draws)
             drawingCurrentHistory = draws
             currentIndex = data.index
             isClear = false
@@ -195,7 +209,7 @@ class EditorCanvasView: UIView {
             historyDatas.append(history.dataRepresentation())
         }
         let data: Data
-        if currentIndex < historyDatas.count, currentIndex >= 0 {
+        if index < historyDatas.count, index >= 0 {
             data = historyDatas[index]
         }else {
             data = .init()
@@ -211,15 +225,7 @@ class EditorCanvasView: UIView {
             let draws = try data.historyDrawings(viewSize)
             isClear = true
             if isDrawing {
-                if #available(iOS 14.0, *) {
-                    if data.index < draws.count, data.index >= 0 {
-                        canvasView.drawing = draws[data.index]
-                    }
-                }else {
-                    if !data.data.isEmpty {
-                        canvasView.drawing = try PKDrawing(data: data.data)
-                    }
-                }
+                try updateCanvasDrawing(with: data, draws: draws)
             }
             drawingCurrentHistory = draws
             currentIndex = data.index
@@ -237,21 +243,13 @@ class EditorCanvasView: UIView {
             let draws = try data.historyDrawings(viewSize)
             isClear = true
             if !isDrawing {
-                if #available(iOS 14.0, *) {
-                    if data.index < draws.count, data.index >= 0 {
-                        canvasView.drawing = draws[data.index]
-                    }
-                }else {
-                    if !data.data.isEmpty {
-                        canvasView.drawing = try PKDrawing(data: data.data)
-                    }
-                }
+                try updateCanvasDrawing(with: data, draws: draws)
             }
             drawingHistory = draws
             index = data.index
             isClear = false
         } catch {
-            
+            isClear = false
         }
     }
     
@@ -350,8 +348,9 @@ extension EditorCanvasView: PKCanvasViewDelegate {
     
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
         if !isClear {
-            if currentIndex >= 0, !drawingCurrentHistory.isEmpty, currentIndex < drawingCurrentHistory.count - 1 {
-                drawingCurrentHistory.removeSubrange(currentIndex+1..<drawingCurrentHistory.count)
+            if !drawingCurrentHistory.isEmpty, currentIndex < drawingCurrentHistory.count - 1 {
+                let startIndex = max(currentIndex + 1, 0)
+                drawingCurrentHistory.removeSubrange(startIndex..<drawingCurrentHistory.count)
                 currentIndex = drawingCurrentHistory.count - 1
             }
             let newDrawing = canvasView.drawing
